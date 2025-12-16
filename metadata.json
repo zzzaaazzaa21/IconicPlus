@@ -1,0 +1,9 @@
+{
+  "name": "IconicPlus",
+  "description": "A hyper-modern, luxury AI chatbot with multimodal capabilities including voice, video generation, and image analysis.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
