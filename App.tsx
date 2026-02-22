@@ -6,6 +6,7 @@ import Studio from './components/Studio';
 import MCQMode from './components/MCQMode';
 import { AppMode, ChatSession, ChatMessage, User } from './types';
 import { MessageSquare, Mic, Palette, LogOut, Menu, X, BookOpenCheck, PanelLeftClose, PanelLeftOpen, Sun, Moon, Plus, Trash2 } from 'lucide-react';
+import { supabase } from './utils/supabase';
 
 const LogoIcon = ({ className = "w-10 h-10" }: { className?: string }) => (
   <svg viewBox="0 0 512 512" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -33,19 +34,47 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // Check for existing session
-    const savedUser = localStorage.getItem('iconic_current_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata.full_name || session.user.email,
+          provider: session.user.app_metadata.provider as any,
+          avatar: session.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`
+        };
+        setUser(user);
+      }
+    };
+    checkUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const user: User = {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata.full_name || session.user.email,
+          provider: session.user.app_metadata.provider as any,
+          avatar: session.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`
+        };
+        setUser(user);
+      } else {
+        setUser(null);
+      }
+    });
 
     const savedSessions = localStorage.getItem('iconic_sessions');
     if (savedSessions) {
       const parsed = JSON.parse(savedSessions);
       setSessions(parsed);
       if (parsed.length > 0) setActiveSessionId(parsed[0].id);
-    } else if (savedUser) {
+    } else if (user) {
       handleCreateNewSession();
     }
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -56,15 +85,14 @@ const App: React.FC = () => {
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
-    localStorage.setItem('iconic_current_user', JSON.stringify(newUser));
     if (sessions.length === 0) {
       handleCreateNewSession();
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem('iconic_current_user');
     setMode(AppMode.CHAT);
   };
 
